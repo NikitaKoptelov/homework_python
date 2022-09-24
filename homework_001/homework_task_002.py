@@ -6,14 +6,15 @@
 #      программа
 
 
-def get_numb (numb):
-    if (0<numb<=7):
-        return 'нет, не является выходным'
-    else:
-        return 'error'
+def get_numb ():
+    array = [0, 1]
+    for x in array:
+        for y in array:
+            for z in array:
+                if (-(x or y or z) == (-x and -y and -z)):
+                    print(f'верное при значениях X - {x} Y - {y} Z - {z}')
 
 
 
-numbers = int(input('введите цифру дня недели: '))
-print (get_numb(numbers))
+print (get_numb())
 
