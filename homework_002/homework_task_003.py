@@ -6,7 +6,7 @@
 #          Программа
 
 
-from itertools import count
+import math
 
 
 def input_numbers ():
@@ -19,8 +19,14 @@ def input_numbers ():
             print('не число')
 
 def get_array_numb (numb):
-  
+    array_numbers = dict()
+    sym_array_num = 0
+    for i in range (1, numb+1):
+        array_numbers[i] = math.ceil(math.pow((1 + math.ceil(1/i)), i))
+    for j in range (1, numb+1):
+        sym_array_num += array_numbers.get(j)
+    return array_numbers, sym_array_num
 
 
 
-print (f'произведение множества чисел {get_array_numb(input_numbers())}')
+print (f'множества чисел {get_array_numb(input_numbers())[0]} - сумма множества - {get_array_numb(input_numbers())[1]}')
