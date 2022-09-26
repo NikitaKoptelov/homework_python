@@ -11,7 +11,7 @@ def get_numb ():
     for x in array:
         for y in array:
             for z in array:
-                if (-(x or y or z) == (-x and -y and -z)):
+                if (not(x or y or z) == (not (x) and not (y) and not (z))):
                     print(f'верное при значениях X - {x} Y - {y} Z - {z}')
 
 

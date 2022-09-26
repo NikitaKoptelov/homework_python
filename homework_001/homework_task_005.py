@@ -10,8 +10,8 @@
 import math
 
 def get_numb (numb_a, numb_b):
-    array_numb_a = [int(x) for x in numb_a.split(' ')]
-    array_numb_b = [int(x) for x in numb_b.split(' ')]
+    array_numb_a = [int(x) for x in numb_a.split()]
+    array_numb_b = [int(x) for x in numb_b.split()]
     if (0 < len(array_numb_a) < 3 and 0 < len(array_numb_b) < 3):
         return round(math.sqrt(math.pow((array_numb_b[0] - array_numb_a[0]), 2) + math.pow((array_numb_b[1] - array_numb_a[1]), 2)), 3)
     else:
