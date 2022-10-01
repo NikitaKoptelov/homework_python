@@ -6,8 +6,6 @@
 #          Программа
 
 
-from itertools import count
-
 
 def input_numbers ():
     while True :

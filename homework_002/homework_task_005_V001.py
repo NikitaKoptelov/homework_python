@@ -4,7 +4,6 @@
 #          Программа
 
 import random
-from re import L
 
 def input_numbers ():
     while True :

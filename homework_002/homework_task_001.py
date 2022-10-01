@@ -11,7 +11,7 @@ def input_numbers ():
         numb = input('введите число - ')
         try:
             numbers = int(numb)
-            return numb
+            return numbers
         except:
             print('не число')
 
