@@ -22,19 +22,23 @@ def input_numbers ():
 def get_array_numb (num):
     numb = [0] * num
     for i in range(len(numb)):
-        numb[i] = random.randint(0, len(numb)-1)
+        numb[i] = round(random.uniform(0, len(numb)-1), 2)
     return numb
 
 def get_sum_num (numb):
-    res_sum_num = [0] * (len(numb) // 2)
-    elem_ret = len(numb) - 1
-    for i in range (0, (len(numb) // 2)):
-        res_sum_num[i] = numb[i] * numb[elem_ret]
-        elem_ret -= 1
-    return res_sum_num
+    res_raznic = 0
+    numb_minim = (numb[0] % 1)
+    numb_maxim = (numb[0] % 1)
+    for i in range (0, len(numb)):
+        if (numb_maxim < (numb[i] % 1)):
+            numb_maxim = numb[i] % 1
+        if (numb_minim > (numb[i] % 1)):
+            numb_minim = numb[i] % 1
+    res_raznic = round((numb_maxim - numb_minim), 2)
+    return res_raznic
 
 
 array_numbers = get_array_numb(input_numbers())
 print(f'созданный список - {array_numbers}')
-print(f'произведение пар чисел - {get_sum_num(array_numbers)}')
+print(f'разница мин и макс дробной части - {get_sum_num(array_numbers)}')
 
