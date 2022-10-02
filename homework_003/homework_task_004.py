@@ -37,6 +37,5 @@ def get_two_numb (num):
 
 
 number = input_numbers()
-print(f'обрабатываемое число - {number}')
 print(f'двоичное число - {get_two_numb(number)}')
 
