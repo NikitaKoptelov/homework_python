@@ -8,7 +8,7 @@
 #          Программа
 
 
-import random
+
 
 def input_numbers ():
     while True :
