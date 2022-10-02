@@ -26,9 +26,13 @@ def get_array_numb (num):
     return numb
 
 def get_sum_num (numb):
-    res_sum_num = [0] * (len(numb) // 2)
-    elem_ret = len(numb) - 1
-    for i in range (0, (len(numb) // 2)):
+    if (len(numb) % 2 != 0):
+        len_array = (len(numb) // 2) + 1
+    else:
+        len_array = (len(numb) // 2)
+    res_sum_num = [0] * len_array
+    elem_ret = len_array + 1
+    for i in range (0, len_array):
         res_sum_num[i] = numb[i] * numb[elem_ret]
         elem_ret -= 1
     return res_sum_num
