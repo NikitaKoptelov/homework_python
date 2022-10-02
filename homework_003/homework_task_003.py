@@ -34,8 +34,8 @@ def get_sum_num (numb):
             numb_maxim = numb[i] % 1
         if (numb_minim > (numb[i] % 1)):
             numb_minim = numb[i] % 1
-    res_raznic = round((numb_maxim - numb_minim), 2)
-    return res_raznic
+    res_raznic = numb_maxim - numb_minim
+    return int(res_raznic * 100) / 100
 
 
 array_numbers = get_array_numb(input_numbers())
