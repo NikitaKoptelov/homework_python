@@ -10,13 +10,13 @@ def input_numbers ():
     while True :
         numb = input('введите число - ')
         try:
-            numbers = int(numb)
+            numbers = float(numb)
             return numbers
         except:
             print('не число')
 
 def get_sum_numb (numb):
-    array_numb = [int(x) for x in list(numb)]
+    array_numb = [int(x) for x in str(numb) if x.isdigit()]
     summa_numbers = 0
     for i in range (len(array_numb)):
         summa_numbers += array_numb[i]
