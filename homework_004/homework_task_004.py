@@ -10,24 +10,32 @@
 
 import random
 
-num_perem = random.randint(1, 10)
-shag = 0
+def input_numbers ():
+    while True :
+        numb = input('введите степень многочлена К - ')
+        try:
+            numbers = int(numb)
+            return numbers
+        except:
+            print('не число')
+
+step_k = input_numbers()
+
 stroka_uravnen = ''
-for _ in range(0, num_perem):
-    kof_num_pere = random.randint(0, 100)
-    if(0 < kof_num_pere <= 100):
-        stroka_uravnen+= str(kof_num_pere)
-    num_x_perem = random.randint(0,1)
-    steprn_perem = random.randint(1,2)
-    if(num_x_perem==1):
-        stroka_uravnen+= 'x'
-        if(steprn_perem == 2):
-            stroka_uravnen+= '^2'
-    shag+=1
-    if(shag < num_perem):
+
+for step in range(step_k, -1, -1):
+    kof_mnogch = random.randint(0,100)
+    if(step>1):
+        stroka_uravnen+= f'{kof_mnogch}x^{step}'
+    elif(step==1):
+        stroka_uravnen+= f'{kof_mnogch}x'
+    else:
+        stroka_uravnen+= f'{kof_mnogch}'
+    if(step_k>=step>0):
         stroka_uravnen+= '+'
-    if(shag==num_perem):
-        stroka_uravnen+= ' = 0'
+else:
+    stroka_uravnen+= '=0'
+
 
 print(stroka_uravnen)
 
