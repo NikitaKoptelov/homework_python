@@ -9,7 +9,6 @@
 #                     7      711     6 2   4    5      7     61
 #                         1111111111222222222233333333334444444
 #               01234567890123456789012345678901234567890123456
-
 nabor_simvol = 'ggggggghhhhhhhshffffffggtttt44444ooooooollllllo'
 print(nabor_simvol)
 
