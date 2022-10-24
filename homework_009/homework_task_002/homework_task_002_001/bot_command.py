@@ -7,7 +7,10 @@ async def hello_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(f'Hello {update.effective_user.first_name}')
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(f'привет. это список команд:\n/hello - приветствие\n/help - список команд\n/formula - арифметическое вычисление выражений')
+    await update.message.reply_text(f'привет. это список команд:\n'+
+                                    '/hello - приветствие\n'+
+                                    '/help - список команд\n'+
+                                    '/formula - арифметическое вычисление выражений')
 
 async def formula_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     log_zapis = ''
