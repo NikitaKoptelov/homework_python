@@ -19,13 +19,13 @@ async def formula_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     j = sympy.Symbol('j')
     msg = update.message.text
     log_zapis = f'введенные значения от пользователя - {msg}'
-    wread_fail(log_zapis)
+    wread_file(log_zapis)
     items = msg.partition('/formula ')[2]
     rez = sympy.simplify(items)
     log_zapis = f'результат вычислений - {rez}'
-    wread_fail(log_zapis)
+    wread_file(log_zapis)
     await update.message.reply_text(f'результат вычисления - {rez}')
 
-def wread_fail(log_zapis):
+def wread_file(log_zapis):
     with open("D:/lesson_Python/homework_python/homework_009/homework_task_002/homework_task_002_001/log_vicheslen.txt", "a") as write_file:
         write_file.write(log_zapis + '\n')

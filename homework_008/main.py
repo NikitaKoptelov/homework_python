@@ -107,7 +107,7 @@ class schit_tab_Филиалы(npyscreen.ActionForm, npyscreen.FormWithMenus, np
         npyscreen.notify_confirm("выбрана Таблица - Филиалы")
         self.parentApp.change_form('FORMA2')
         self.rabota_s_xls.tast_zapisi = 'schit_tab_Филиалы'
-        self.rabota_s_xls.wread_fail()
+        self.rabota_s_xls.wread_file()
     
     def press_3(self):
         npyscreen.notify_confirm("выбрана Таблица - Товары")
@@ -728,7 +728,7 @@ class App(npyscreen.NPSAppManaged):                                           # 
     # rabota_s_xls.init
     # tast_zapisi_progi = 'f'
     rabota_s_xls.tast_zapisi
-    rabota_s_xls.wread_fail()
+    rabota_s_xls.wread_file()
     # dat_tamer = True
 
     def onStart(self):
