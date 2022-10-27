@@ -1,768 +1,1245 @@
-import npyscreen
-import datetime
-import threading
-from time import sleep
-import rabota_s_xls
-rabota_s_xls.init
-rabota_s_xls.tast_zapisi
+import wx
+import wx.grid as gridlib
+
+import openpyxl
+from openpyxl.utils import get_column_letter, column_index_from_string
+from openpyxl.utils import FORMULAE
+
+class PanelOne(wx.Panel):
+
+    def __init__(self, parent):
+        wx.Panel.__init__(self, parent=parent)
+        txt = wx.TextCtrl(self)
 
 
-class StartovauStranica(npyscreen.ActionForm, npyscreen.FormWithMenus):                                         #  форма в нутри приложений
-    def create(self):
-        # self.stroka_vvoda_1 = self.add(npyscreen.TitleText, name="название ввода строки текста")
-        self.date = self.add(npyscreen.TitleText, value = str(datetime.datetime.now()), editable=False, name='Дата и Время')
-        self.menu = self.new_menu(name="новое глвное меню", shortcut='m')
-        self.menu.addItem("1 Главное окно", self.press_1, "1")
-        self.menu.addItem("2 Таблица - Филиалы", self.press_2, "2")
-        self.menu.addItem("3 Таблица - Товары", self.press_3, "3")
-        self.menu.addItem("4 Таблица - Производители товаров", self.press_4, "4")
-        self.menu.addItem("5 Таблица - Поставки", self.press_5, "5")
-        self.menu.addItem("6 Таблица - Покупки", self.press_6, "6")
-        self.menu.addItem("7 Таблица - Клиенты", self.press_7, "7")
-        self.menu.addItem("8 Таблица - Категории", self.press_8, "8")
-        self.menu.addItem("9 Таблица - Изменение цены на товары", self.press_9, "9")
-        self.menu.addItem("10 Таблица - Запись в счете", self.press_10, "10")
-        self.menu.addItem("выход из программы", self.exit_form, "^X")
+class PanelTwo_filiali(wx.Panel):
+    def __init__(self, parent):
+        wx.Panel.__init__(self, parent=parent)
+        sizer = wx.BoxSizer(wx.VERTICAL)
 
-    def press_1(self):
-        npyscreen.notify_confirm("выбрано Главное окно")
-        self.parentApp.change_form('MAIN')
-        
-    def press_2(self):
-        npyscreen.notify_confirm("выбрана Таблица - Филиалы")
-        self.parentApp.change_form('FORMA2')
-        
-    
-    def press_3(self):
-        npyscreen.notify_confirm("выбрана Таблица - Товары")
-        self.parentApp.change_form('FORMA3')
+        self.currentlySelectedCell = (0, 0)
 
-    def press_4(self):
-        npyscreen.notify_confirm("выбрана Таблица - Производители товаров")
-        self.parentApp.change_form('FORMA4')
-    
-    def press_5(self):
-        npyscreen.notify_confirm("выбрана Таблица - Поставки")
-        self.parentApp.change_form('FORMA5')
+        self.wb = openpyxl.load_workbook('magazinchik.xlsx')
+        self.sheet = self.wb['Филиалы']
 
-    def press_6(self):
-        npyscreen.notify_confirm("выбрана Таблица - Покупки")
-        self.parentApp.change_form('FORMA6')
+        rows = (self.sheet.max_row) + 1
+        cols = (self.sheet.max_column) + 1
 
-    def press_7(self):
-        npyscreen.notify_confirm("выбрана Таблица - Клиенты")
-        self.parentApp.change_form('FORMA7')
+        self.grid = wx.grid.Grid(self)
+        self.grid.CreateGrid(rows, cols)
+        for row in range(1, rows):
+            for col in range(1, cols):
+                bukva = get_column_letter(col)
+                ctroka = str(self.sheet[f'{bukva}{row}'].value)
+                self.grid.SetCellValue(row - 1, col - 1, ctroka)
 
-    def press_8(self):
-        npyscreen.notify_confirm("выбрана Таблица - Категории")
-        self.parentApp.change_form('FORMA8')
+        self.grid.Bind(gridlib.EVT_GRID_SELECT_CELL, self.onSingleSelect)
+        self.grid.Bind(gridlib.EVT_GRID_RANGE_SELECT, self.onDragSelection)
 
-    def press_9(self):
-        npyscreen.notify_confirm("выбрана Таблица - Изменение цены на товары")
-        self.parentApp.change_form('FORMA9')
+        selectBtn = wx.Button(self, label="сохранить внесенные изменения")
+        selectBtn.Bind(wx.EVT_BUTTON, self.onGetSelection)
 
-    def press_10(self):
-        npyscreen.notify_confirm("выбрана Таблица - Запись в счете")
-        self.parentApp.change_form('FORMA10')
+        sizer.Add(self.grid, 1, wx.EXPAND)
+        sizer.Add(selectBtn, 0, wx.ALL | wx.CENTER, 5)
+        self.SetSizer(sizer)
 
-    def exit_form(self):
-        self.parentApp.switchForm(None)
+    def onDragSelection(self, event):
+        """
+        Получаем клетки, которые были выбраны посредством зажатия левой
+        кнопки мыши и выделения
+        """
+        if self.grid.GetSelectionBlockTopLeft():
+            top_left = self.grid.GetSelectionBlockTopLeft()[0]
+            bottom_right = self.grid.GetSelectionBlockBottomRight()[0]
+            # self.printSelectedCells(top_left, bottom_right)
 
-    def on_ok(self):
-        npyscreen.notify_confirm("OK button")
-
-    def on_cancel(self):
-        exiting = npyscreen.notify_yes_no("выход из программы")
-        if(exiting):
-            npyscreen.notify_confirm("да, выход. НЕТ, остаться")
-            self.parentApp.setNextForm(None)
+    def onGetSelection(self, event):
+        """
+        Получаем клетки, которые выбраны в данный момент
+        """
+        cells = self.grid.GetSelectedCells()
+        if not cells:
+            if self.grid.GetSelectionBlockTopLeft():
+                top_left = self.grid.GetSelectionBlockTopLeft()[0]
+                bottom_right = self.grid.GetSelectionBlockBottomRight()[0]
+                self.printSelectedCells(top_left, bottom_right)                      #   вывод данных по нажатию кнопки
+            else:
+                # print(self.currentlySelectedCell)
+                return self.currentlySelectedCell
         else:
-            npyscreen.notify_confirm("продолжим работу")
+            # print(cells)
+            return cells
 
-class schit_tab_Филиалы(npyscreen.ActionForm, npyscreen.FormWithMenus, npyscreen.ActionFormMinimal):
-    
-    def create(self):
-        # self.parentApp.dat_tamer = False
-        self.menu = self.new_menu(name="новое глвное меню", shortcut='m')
-        self.menu.addItem("1 Главное окно", self.press_1, "1")
-        self.menu.addItem("2 Таблица - Филиалы", self.press_2, "2")
-        self.menu.addItem("3 Таблица - Товары", self.press_3, "3")
-        self.menu.addItem("4 Таблица - Производители товаров", self.press_4, "4")
-        self.menu.addItem("5 Таблица - Поставки", self.press_5, "5")
-        self.menu.addItem("6 Таблица - Покупки", self.press_6, "6")
-        self.menu.addItem("7 Таблица - Клиенты", self.press_7, "7")
-        self.menu.addItem("8 Таблица - Категории", self.press_8, "8")
-        self.menu.addItem("9 Таблица - Изменение цены на товары", self.press_9, "9")
-        self.menu.addItem("10 Таблица - Запись в счете", self.press_10, "10")
-        self.menu.addItem("выход из программы", self.exit_form, "^X")
-        self.tablet= self.add(npyscreen.GridColTitles,)
-        self.tablet.values=rabota_s_xls.schit_tab_Филиалы()
-        
+    def onSingleSelect(self, event):
+        """
+        Получаем выделение одной ячейки посредством клика по ней
+        или перемещения между клетками посредством клавиш-стрелок
+        """
+        # print("You selected Row %s, Col %s" % (event.GetRow(), event.GetCol()))
 
-    def press_1(self):
-        npyscreen.notify_confirm("выбрано Главное окно")
-        self.parentApp.change_form('MAIN')
-        
-    def press_2(self):
-        npyscreen.notify_confirm("выбрана Таблица - Филиалы")
-        self.parentApp.change_form('FORMA2')
-        self.rabota_s_xls.tast_zapisi = 'schit_tab_Филиалы'
-        self.rabota_s_xls.wread_file()
-    
-    def press_3(self):
-        npyscreen.notify_confirm("выбрана Таблица - Товары")
-        self.parentApp.change_form('FORMA3')
+        self.currentlySelectedCell = (event.GetRow(),
+                                      event.GetCol())
+        event.Skip()
 
-    def press_4(self):
-        npyscreen.notify_confirm("выбрана Таблица - Производители товаров")
-        self.parentApp.change_form('FORMA4')
-    
-    def press_5(self):
-        npyscreen.notify_confirm("выбрана Таблица - Поставки")
-        self.parentApp.change_form('FORMA5')
+        # return self.currentlySelectedCell
 
-    def press_6(self):
-        npyscreen.notify_confirm("выбрана Таблица - Покупки")
-        self.parentApp.change_form('FORMA6')
+    def printSelectedCells(self, top_left, bottom_right):
+        """
+        Основано на коде из: http://ginstrom.com/scribbles/2008/09/07/getting-the-selected-cells-from-a-wxpython-grid/
+        """
+        cells = []
 
-    def press_7(self):
-        npyscreen.notify_confirm("выбрана Таблица - Клиенты")
-        self.parentApp.change_form('FORMA7')
+        rows_start = top_left[0]
+        rows_end = bottom_right[0]
 
-    def press_8(self):
-        npyscreen.notify_confirm("выбрана Таблица - Категории")
-        self.parentApp.change_form('FORMA8')
+        cols_start = top_left[1]
+        cols_end = bottom_right[1]
 
-    def press_9(self):
-        npyscreen.notify_confirm("выбрана Таблица - Изменение цены на товары")
-        self.parentApp.change_form('FORMA9')
+        rows = range(rows_start, rows_end + 1)
+        cols = range(cols_start, cols_end + 1)
 
-    def press_10(self):
-        npyscreen.notify_confirm("выбрана Таблица - Запись в счете")
-        self.parentApp.change_form('FORMA10')
+        cells.extend([(row, col)
+                      for row in rows
+                      for col in cols])
 
-    def exit_form(self):
-        self.parentApp.switchForm(None)
+        print("выделены ячейки: ", cells)
 
-    def on_ok(self):
-        npyscreen.notify_confirm("OK button")
 
-    def on_cancel(self):
-        exiting = npyscreen.notify_yes_no("выход из программы")
-        if(exiting):
-            npyscreen.notify_confirm("да, выход. НЕТ, остаться")
-            self.parentApp.setNextForm(None)
+        for cell in cells:
+            row, col = cell
+            bukva = get_column_letter(col+1)                                  #   вставиить конвертер для координат ЭКСЕЛЯ
+            print(f'значение выбраных ячеек - {self.grid.GetCellValue(row, col)} - {row+1} : {bukva}')
+            koordinat = str(bukva) + str(row + 1)
+            print(f'запись по координатам - {koordinat}', type(koordinat))
+            self.wb = openpyxl.load_workbook('magazinchik.xlsx')
+            self.sheet = self.wb['Филиалы']
+            self.sheet[koordinat]=self.grid.GetCellValue(row, col)
+            self.wb.save('magazinchik.xlsx')
+                                                           #    в цикле выводится информация по координатам, надо прикрутить запись в ЭКСЕЛЬ по координатам
+
+        def createToolBar(self):                                   # (1) Создание панели инструментов
+            toolbar = self.CreateToolBar()
+            for each in self.toolbarData():
+                self.createSimpleTool(toolbar, *each)
+            toolbar.AddSeparator()
+            for each in self.toolbarColorData():
+                self.createColorTool(toolbar, each)
+            toolbar.Realize()
+
+class PanelTwo_tovari(wx.Panel):
+    def __init__(self, parent):
+        wx.Panel.__init__(self, parent=parent)
+        sizer = wx.BoxSizer(wx.VERTICAL)
+
+        self.currentlySelectedCell = (0, 0)
+
+        self.wb = openpyxl.load_workbook('magazinchik.xlsx')
+        self.sheet = self.wb['Товары']
+
+        rows = (self.sheet.max_row) + 1
+        cols = (self.sheet.max_column) + 1
+
+        self.grid = wx.grid.Grid(self)
+        self.grid.CreateGrid(rows, cols)
+        for row in range(1, rows):
+            for col in range(1, cols):
+                bukva = get_column_letter(col)
+                ctroka = str(self.sheet[f'{bukva}{row}'].value)
+                self.grid.SetCellValue(row - 1, col - 1, ctroka)
+
+        self.grid.Bind(gridlib.EVT_GRID_SELECT_CELL, self.onSingleSelect)
+        self.grid.Bind(gridlib.EVT_GRID_RANGE_SELECT, self.onDragSelection)
+
+        selectBtn = wx.Button(self, label="сохранить внесенные изменения")
+        selectBtn.Bind(wx.EVT_BUTTON, self.onGetSelection)
+
+        sizer.Add(self.grid, 1, wx.EXPAND)
+        sizer.Add(selectBtn, 0, wx.ALL | wx.CENTER, 5)
+        self.SetSizer(sizer)
+
+    def onDragSelection(self, event):
+        """
+        Получаем клетки, которые были выбраны посредством зажатия левой
+        кнопки мыши и выделения
+        """
+        if self.grid.GetSelectionBlockTopLeft():
+            top_left = self.grid.GetSelectionBlockTopLeft()[0]
+            bottom_right = self.grid.GetSelectionBlockBottomRight()[0]
+            # self.printSelectedCells(top_left, bottom_right)
+
+    def onGetSelection(self, event):
+        """
+        Получаем клетки, которые выбраны в данный момент
+        """
+        cells = self.grid.GetSelectedCells()
+        if not cells:
+            if self.grid.GetSelectionBlockTopLeft():
+                top_left = self.grid.GetSelectionBlockTopLeft()[0]
+                bottom_right = self.grid.GetSelectionBlockBottomRight()[0]
+                self.printSelectedCells(top_left, bottom_right)                      #   вывод данных по нажатию кнопки
+            else:
+                # print(self.currentlySelectedCell)
+                return self.currentlySelectedCell
         else:
-            npyscreen.notify_confirm("продолжим работу")
+            # print(cells)
+            return cells
 
-class schit_tab_Товары(npyscreen.ActionForm, npyscreen.FormWithMenus, npyscreen.ActionFormMinimal):
-    def create(self):
-        self.menu = self.new_menu(name="новое глвное меню", shortcut='m')
-        self.menu.addItem("1 Главное окно", self.press_1, "1")
-        self.menu.addItem("2 Таблица - Филиалы", self.press_2, "2")
-        self.menu.addItem("3 Таблица - Товары", self.press_3, "3")
-        self.menu.addItem("4 Таблица - Производители товаров", self.press_4, "4")
-        self.menu.addItem("5 Таблица - Поставки", self.press_5, "5")
-        self.menu.addItem("6 Таблица - Покупки", self.press_6, "6")
-        self.menu.addItem("7 Таблица - Клиенты", self.press_7, "7")
-        self.menu.addItem("8 Таблица - Категории", self.press_8, "8")
-        self.menu.addItem("9 Таблица - Изменение цены на товары", self.press_9, "9")
-        self.menu.addItem("10 Таблица - Запись в счете", self.press_10, "10")
-        self.menu.addItem("выход из программы", self.exit_form, "^X")
-        self.tablet= self.add(npyscreen.GridColTitles,)
-        self.tablet.values=rabota_s_xls.schit_tab_Товары()
+    def onSingleSelect(self, event):
+        """
+        Получаем выделение одной ячейки посредством клика по ней
+        или перемещения между клетками посредством клавиш-стрелок
+        """
+        # print("You selected Row %s, Col %s" % (event.GetRow(), event.GetCol()))
 
-    def press_1(self):
-        npyscreen.notify_confirm("выбрано Главное окно")
-        self.parentApp.change_form('MAIN')
-        
-    def press_2(self):
-        npyscreen.notify_confirm("выбрана Таблица - Филиалы")
-        self.parentApp.change_form('FORMA2')
-    
-    def press_3(self):
-        npyscreen.notify_confirm("выбрана Таблица - Товары")
-        self.parentApp.change_form('FORMA3')
+        self.currentlySelectedCell = (event.GetRow(),
+                                      event.GetCol())
+        event.Skip()
 
-    def press_4(self):
-        npyscreen.notify_confirm("выбрана Таблица - Производители товаров")
-        self.parentApp.change_form('FORMA4')
-    
-    def press_5(self):
-        npyscreen.notify_confirm("выбрана Таблица - Поставки")
-        self.parentApp.change_form('FORMA5')
+        # return self.currentlySelectedCell
 
-    def press_6(self):
-        npyscreen.notify_confirm("выбрана Таблица - Покупки")
-        self.parentApp.change_form('FORMA6')
+    def printSelectedCells(self, top_left, bottom_right):
+        """
+        Основано на коде из: http://ginstrom.com/scribbles/2008/09/07/getting-the-selected-cells-from-a-wxpython-grid/
+        """
+        cells = []
 
-    def press_7(self):
-        npyscreen.notify_confirm("выбрана Таблица - Клиенты")
-        self.parentApp.change_form('FORMA7')
+        rows_start = top_left[0]
+        rows_end = bottom_right[0]
 
-    def press_8(self):
-        npyscreen.notify_confirm("выбрана Таблица - Категории")
-        self.parentApp.change_form('FORMA8')
+        cols_start = top_left[1]
+        cols_end = bottom_right[1]
 
-    def press_9(self):
-        npyscreen.notify_confirm("выбрана Таблица - Изменение цены на товары")
-        self.parentApp.change_form('FORMA9')
+        rows = range(rows_start, rows_end + 1)
+        cols = range(cols_start, cols_end + 1)
 
-    def press_10(self):
-        npyscreen.notify_confirm("выбрана Таблица - Запись в счете")
-        self.parentApp.change_form('FORMA10')
+        cells.extend([(row, col)
+                      for row in rows
+                      for col in cols])
 
-    def exit_form(self):
-        self.parentApp.switchForm(None)
+        print("выделены ячейки: ", cells)
 
-    def on_ok(self):
-        npyscreen.notify_confirm("OK button")
 
-    def on_cancel(self):
-        exiting = npyscreen.notify_yes_no("выход из программы")
-        if(exiting):
-            npyscreen.notify_confirm("да, выход. НЕТ, остаться")
-            self.parentApp.setNextForm(None)
+        for cell in cells:
+            row, col = cell
+            bukva = get_column_letter(col+1)                                  #   вставиить конвертер для координат ЭКСЕЛЯ
+            print(f'значение выбраных ячеек - {self.grid.GetCellValue(row, col)} - {row+1} : {bukva}')
+            koordinat = str(bukva) + str(row + 1)
+            print(f'запись по координатам - {koordinat}', type(koordinat))
+            self.wb = openpyxl.load_workbook('magazinchik.xlsx')
+            self.sheet = self.wb['Товары']
+            self.sheet[koordinat]=self.grid.GetCellValue(row, col)
+            self.wb.save('magazinchik.xlsx')
+                                                           #    в цикле выводится информация по координатам, надо прикрутить запись в ЭКСЕЛЬ по координатам
+
+        def createToolBar(self):                                   # (1) Создание панели инструментов
+            toolbar = self.CreateToolBar()
+            for each in self.toolbarData():
+                self.createSimpleTool(toolbar, *each)
+            toolbar.AddSeparator()
+            for each in self.toolbarColorData():
+                self.createColorTool(toolbar, each)
+            toolbar.Realize()
+
+class PanelTwo_proizvod(wx.Panel):
+    def __init__(self, parent):
+        wx.Panel.__init__(self, parent=parent)
+        sizer = wx.BoxSizer(wx.VERTICAL)
+
+        self.currentlySelectedCell = (0, 0)
+
+        self.wb = openpyxl.load_workbook('magazinchik.xlsx')
+        self.sheet = self.wb['Производители товаров']
+
+        rows = (self.sheet.max_row) + 1
+        cols = (self.sheet.max_column) + 1
+
+        self.grid = wx.grid.Grid(self)
+        self.grid.CreateGrid(rows, cols)
+        for row in range(1, rows):
+            for col in range(1, cols):
+                bukva = get_column_letter(col)
+                ctroka = str(self.sheet[f'{bukva}{row}'].value)
+                self.grid.SetCellValue(row - 1, col - 1, ctroka)
+
+        self.grid.Bind(gridlib.EVT_GRID_SELECT_CELL, self.onSingleSelect)
+        self.grid.Bind(gridlib.EVT_GRID_RANGE_SELECT, self.onDragSelection)
+
+        selectBtn = wx.Button(self, label="сохранить внесенные изменения")
+        selectBtn.Bind(wx.EVT_BUTTON, self.onGetSelection)
+
+        sizer.Add(self.grid, 1, wx.EXPAND)
+        sizer.Add(selectBtn, 0, wx.ALL | wx.CENTER, 5)
+        self.SetSizer(sizer)
+
+    def onDragSelection(self, event):
+        """
+        Получаем клетки, которые были выбраны посредством зажатия левой
+        кнопки мыши и выделения
+        """
+        if self.grid.GetSelectionBlockTopLeft():
+            top_left = self.grid.GetSelectionBlockTopLeft()[0]
+            bottom_right = self.grid.GetSelectionBlockBottomRight()[0]
+            # self.printSelectedCells(top_left, bottom_right)
+
+    def onGetSelection(self, event):
+        """
+        Получаем клетки, которые выбраны в данный момент
+        """
+        cells = self.grid.GetSelectedCells()
+        if not cells:
+            if self.grid.GetSelectionBlockTopLeft():
+                top_left = self.grid.GetSelectionBlockTopLeft()[0]
+                bottom_right = self.grid.GetSelectionBlockBottomRight()[0]
+                self.printSelectedCells(top_left, bottom_right)                      #   вывод данных по нажатию кнопки
+            else:
+                # print(self.currentlySelectedCell)
+                return self.currentlySelectedCell
         else:
-            npyscreen.notify_confirm("продолжим работу")
+            # print(cells)
+            return cells
 
-class schit_tab_Производители_товаров(npyscreen.ActionForm, npyscreen.FormWithMenus, npyscreen.ActionFormMinimal):
-    def create(self):
-        self.menu = self.new_menu(name="новое глвное меню", shortcut='m')
-        self.menu.addItem("1 Главное окно", self.press_1, "1")
-        self.menu.addItem("2 Таблица - Филиалы", self.press_2, "2")
-        self.menu.addItem("3 Таблица - Товары", self.press_3, "3")
-        self.menu.addItem("4 Таблица - Производители товаров", self.press_4, "4")
-        self.menu.addItem("5 Таблица - Поставки", self.press_5, "5")
-        self.menu.addItem("6 Таблица - Покупки", self.press_6, "6")
-        self.menu.addItem("7 Таблица - Клиенты", self.press_7, "7")
-        self.menu.addItem("8 Таблица - Категории", self.press_8, "8")
-        self.menu.addItem("9 Таблица - Изменение цены на товары", self.press_9, "9")
-        self.menu.addItem("10 Таблица - Запись в счете", self.press_10, "10")
-        self.menu.addItem("выход из программы", self.exit_form, "^X")
-        self.tablet= self.add(npyscreen.GridColTitles,)
-        self.tablet.values=rabota_s_xls.schit_tab_Производители_товаров()
+    def onSingleSelect(self, event):
+        """
+        Получаем выделение одной ячейки посредством клика по ней
+        или перемещения между клетками посредством клавиш-стрелок
+        """
+        # print("You selected Row %s, Col %s" % (event.GetRow(), event.GetCol()))
 
-    def press_1(self):
-        npyscreen.notify_confirm("выбрано Главное окно")
-        self.parentApp.change_form('MAIN')
-        
-    def press_2(self):
-        npyscreen.notify_confirm("выбрана Таблица - Филиалы")
-        self.parentApp.change_form('FORMA2')
-    
-    def press_3(self):
-        npyscreen.notify_confirm("выбрана Таблица - Товары")
-        self.parentApp.change_form('FORMA3')
+        self.currentlySelectedCell = (event.GetRow(),
+                                      event.GetCol())
+        event.Skip()
 
-    def press_4(self):
-        npyscreen.notify_confirm("выбрана Таблица - Производители товаров")
-        self.parentApp.change_form('FORMA4')
-    
-    def press_5(self):
-        npyscreen.notify_confirm("выбрана Таблица - Поставки")
-        self.parentApp.change_form('FORMA5')
+        # return self.currentlySelectedCell
 
-    def press_6(self):
-        npyscreen.notify_confirm("выбрана Таблица - Покупки")
-        self.parentApp.change_form('FORMA6')
+    def printSelectedCells(self, top_left, bottom_right):
+        """
+        Основано на коде из: http://ginstrom.com/scribbles/2008/09/07/getting-the-selected-cells-from-a-wxpython-grid/
+        """
+        cells = []
 
-    def press_7(self):
-        npyscreen.notify_confirm("выбрана Таблица - Клиенты")
-        self.parentApp.change_form('FORMA7')
+        rows_start = top_left[0]
+        rows_end = bottom_right[0]
 
-    def press_8(self):
-        npyscreen.notify_confirm("выбрана Таблица - Категории")
-        self.parentApp.change_form('FORMA8')
+        cols_start = top_left[1]
+        cols_end = bottom_right[1]
 
-    def press_9(self):
-        npyscreen.notify_confirm("выбрана Таблица - Изменение цены на товары")
-        self.parentApp.change_form('FORMA9')
+        rows = range(rows_start, rows_end + 1)
+        cols = range(cols_start, cols_end + 1)
 
-    def press_10(self):
-        npyscreen.notify_confirm("выбрана Таблица - Запись в счете")
-        self.parentApp.change_form('FORMA10')
+        cells.extend([(row, col)
+                      for row in rows
+                      for col in cols])
 
-    def exit_form(self):
-        self.parentApp.switchForm(None)
+        print("выделены ячейки: ", cells)
 
-    def on_ok(self):
-        npyscreen.notify_confirm("OK button")
 
-    def on_cancel(self):
-        exiting = npyscreen.notify_yes_no("выход из программы")
-        if(exiting):
-            npyscreen.notify_confirm("да, выход. НЕТ, остаться")
-            self.parentApp.setNextForm(None)
+        for cell in cells:
+            row, col = cell
+            bukva = get_column_letter(col+1)                                  #   вставиить конвертер для координат ЭКСЕЛЯ
+            print(f'значение выбраных ячеек - {self.grid.GetCellValue(row, col)} - {row+1} : {bukva}')
+            koordinat = str(bukva) + str(row + 1)
+            print(f'запись по координатам - {koordinat}', type(koordinat))
+            self.wb = openpyxl.load_workbook('magazinchik.xlsx')
+            self.sheet = self.wb['Производители товаров']
+            self.sheet[koordinat]=self.grid.GetCellValue(row, col)
+            self.wb.save('magazinchik.xlsx')
+                                                           #    в цикле выводится информация по координатам, надо прикрутить запись в ЭКСЕЛЬ по координатам
+
+        def createToolBar(self):                                   # (1) Создание панели инструментов
+            toolbar = self.CreateToolBar()
+            for each in self.toolbarData():
+                self.createSimpleTool(toolbar, *each)
+            toolbar.AddSeparator()
+            for each in self.toolbarColorData():
+                self.createColorTool(toolbar, each)
+            toolbar.Realize()
+
+class PanelTwo_postavki(wx.Panel):
+    def __init__(self, parent):
+        wx.Panel.__init__(self, parent=parent)
+        sizer = wx.BoxSizer(wx.VERTICAL)
+
+        self.currentlySelectedCell = (0, 0)
+
+        self.wb = openpyxl.load_workbook('magazinchik.xlsx')
+        self.sheet = self.wb['Поставки']
+
+        rows = (self.sheet.max_row) + 1
+        cols = (self.sheet.max_column) + 1
+
+        self.grid = wx.grid.Grid(self)
+        self.grid.CreateGrid(rows, cols)
+        for row in range(1, rows):
+            for col in range(1, cols):
+                bukva = get_column_letter(col)
+                ctroka = str(self.sheet[f'{bukva}{row}'].value)
+                self.grid.SetCellValue(row - 1, col - 1, ctroka)
+
+        self.grid.Bind(gridlib.EVT_GRID_SELECT_CELL, self.onSingleSelect)
+        self.grid.Bind(gridlib.EVT_GRID_RANGE_SELECT, self.onDragSelection)
+
+        selectBtn = wx.Button(self, label="сохранить внесенные изменения")
+        selectBtn.Bind(wx.EVT_BUTTON, self.onGetSelection)
+
+        sizer.Add(self.grid, 1, wx.EXPAND)
+        sizer.Add(selectBtn, 0, wx.ALL | wx.CENTER, 5)
+        self.SetSizer(sizer)
+
+    def onDragSelection(self, event):
+        """
+        Получаем клетки, которые были выбраны посредством зажатия левой
+        кнопки мыши и выделения
+        """
+        if self.grid.GetSelectionBlockTopLeft():
+            top_left = self.grid.GetSelectionBlockTopLeft()[0]
+            bottom_right = self.grid.GetSelectionBlockBottomRight()[0]
+            # self.printSelectedCells(top_left, bottom_right)
+
+    def onGetSelection(self, event):
+        """
+        Получаем клетки, которые выбраны в данный момент
+        """
+        cells = self.grid.GetSelectedCells()
+        if not cells:
+            if self.grid.GetSelectionBlockTopLeft():
+                top_left = self.grid.GetSelectionBlockTopLeft()[0]
+                bottom_right = self.grid.GetSelectionBlockBottomRight()[0]
+                self.printSelectedCells(top_left, bottom_right)                      #   вывод данных по нажатию кнопки
+            else:
+                # print(self.currentlySelectedCell)
+                return self.currentlySelectedCell
         else:
-            npyscreen.notify_confirm("продолжим работу")
+            # print(cells)
+            return cells
 
-class schit_tab_Поставки(npyscreen.ActionForm, npyscreen.FormWithMenus, npyscreen.ActionFormMinimal):
-    def create(self):
-        self.menu = self.new_menu(name="новое глвное меню", shortcut='m')
-        self.menu.addItem("1 Главное окно", self.press_1, "1")
-        self.menu.addItem("2 Таблица - Филиалы", self.press_2, "2")
-        self.menu.addItem("3 Таблица - Товары", self.press_3, "3")
-        self.menu.addItem("4 Таблица - Производители товаров", self.press_4, "4")
-        self.menu.addItem("5 Таблица - Поставки", self.press_5, "5")
-        self.menu.addItem("6 Таблица - Покупки", self.press_6, "6")
-        self.menu.addItem("7 Таблица - Клиенты", self.press_7, "7")
-        self.menu.addItem("8 Таблица - Категории", self.press_8, "8")
-        self.menu.addItem("9 Таблица - Изменение цены на товары", self.press_9, "9")
-        self.menu.addItem("10 Таблица - Запись в счете", self.press_10, "10")
-        self.menu.addItem("выход из программы", self.exit_form, "^X")
-        self.tablet= self.add(npyscreen.GridColTitles,)
-        self.tablet.values=rabota_s_xls.schit_tab_Поставки()
+    def onSingleSelect(self, event):
+        """
+        Получаем выделение одной ячейки посредством клика по ней
+        или перемещения между клетками посредством клавиш-стрелок
+        """
+        # print("You selected Row %s, Col %s" % (event.GetRow(), event.GetCol()))
 
-    def press_1(self):
-        npyscreen.notify_confirm("выбрано Главное окно")
-        self.parentApp.change_form('MAIN')
-        
-    def press_2(self):
-        npyscreen.notify_confirm("выбрана Таблица - Филиалы")
-        self.parentApp.change_form('FORMA2')
-    
-    def press_3(self):
-        npyscreen.notify_confirm("выбрана Таблица - Товары")
-        self.parentApp.change_form('FORMA3')
+        self.currentlySelectedCell = (event.GetRow(),
+                                      event.GetCol())
+        event.Skip()
 
-    def press_4(self):
-        npyscreen.notify_confirm("выбрана Таблица - Производители товаров")
-        self.parentApp.change_form('FORMA4')
-    
-    def press_5(self):
-        npyscreen.notify_confirm("выбрана Таблица - Поставки")
-        self.parentApp.change_form('FORMA5')
+        # return self.currentlySelectedCell
 
-    def press_6(self):
-        npyscreen.notify_confirm("выбрана Таблица - Покупки")
-        self.parentApp.change_form('FORMA6')
+    def printSelectedCells(self, top_left, bottom_right):
+        """
+        Основано на коде из: http://ginstrom.com/scribbles/2008/09/07/getting-the-selected-cells-from-a-wxpython-grid/
+        """
+        cells = []
 
-    def press_7(self):
-        npyscreen.notify_confirm("выбрана Таблица - Клиенты")
-        self.parentApp.change_form('FORMA7')
+        rows_start = top_left[0]
+        rows_end = bottom_right[0]
 
-    def press_8(self):
-        npyscreen.notify_confirm("выбрана Таблица - Категории")
-        self.parentApp.change_form('FORMA8')
+        cols_start = top_left[1]
+        cols_end = bottom_right[1]
 
-    def press_9(self):
-        npyscreen.notify_confirm("выбрана Таблица - Изменение цены на товары")
-        self.parentApp.change_form('FORMA9')
+        rows = range(rows_start, rows_end + 1)
+        cols = range(cols_start, cols_end + 1)
 
-    def press_10(self):
-        npyscreen.notify_confirm("выбрана Таблица - Запись в счете")
-        self.parentApp.change_form('FORMA10')
+        cells.extend([(row, col)
+                      for row in rows
+                      for col in cols])
 
-    def exit_form(self):
-        self.parentApp.switchForm(None)
+        print("выделены ячейки: ", cells)
 
-    def on_ok(self):
-        npyscreen.notify_confirm("OK button")
 
-    def on_cancel(self):
-        exiting = npyscreen.notify_yes_no("выход из программы")
-        if(exiting):
-            npyscreen.notify_confirm("да, выход. НЕТ, остаться")
-            self.parentApp.setNextForm(None)
+        for cell in cells:
+            row, col = cell
+            bukva = get_column_letter(col+1)                                  #   вставиить конвертер для координат ЭКСЕЛЯ
+            print(f'значение выбраных ячеек - {self.grid.GetCellValue(row, col)} - {row+1} : {bukva}')
+            koordinat = str(bukva) + str(row + 1)
+            print(f'запись по координатам - {koordinat}', type(koordinat))
+            self.wb = openpyxl.load_workbook('magazinchik.xlsx')
+            self.sheet = self.wb['Поставки']
+            self.sheet[koordinat]=self.grid.GetCellValue(row, col)
+            self.wb.save('magazinchik.xlsx')
+                                                           #    в цикле выводится информация по координатам, надо прикрутить запись в ЭКСЕЛЬ по координатам
+
+        def createToolBar(self):                                   # (1) Создание панели инструментов
+            toolbar = self.CreateToolBar()
+            for each in self.toolbarData():
+                self.createSimpleTool(toolbar, *each)
+            toolbar.AddSeparator()
+            for each in self.toolbarColorData():
+                self.createColorTool(toolbar, each)
+            toolbar.Realize()
+
+class PanelTwo_pokupki(wx.Panel):
+    def __init__(self, parent):
+        wx.Panel.__init__(self, parent=parent)
+        sizer = wx.BoxSizer(wx.VERTICAL)
+
+        self.currentlySelectedCell = (0, 0)
+
+        self.wb = openpyxl.load_workbook('magazinchik.xlsx')
+        self.sheet = self.wb['Покупки']
+
+        rows = (self.sheet.max_row) + 1
+        cols = (self.sheet.max_column) + 1
+
+        self.grid = wx.grid.Grid(self)
+        self.grid.CreateGrid(rows, cols)
+        for row in range(1, rows):
+            for col in range(1, cols):
+                bukva = get_column_letter(col)
+                ctroka = str(self.sheet[f'{bukva}{row}'].value)
+                self.grid.SetCellValue(row - 1, col - 1, ctroka)
+
+        self.grid.Bind(gridlib.EVT_GRID_SELECT_CELL, self.onSingleSelect)
+        self.grid.Bind(gridlib.EVT_GRID_RANGE_SELECT, self.onDragSelection)
+
+        selectBtn = wx.Button(self, label="сохранить внесенные изменения")
+        selectBtn.Bind(wx.EVT_BUTTON, self.onGetSelection)
+
+        sizer.Add(self.grid, 1, wx.EXPAND)
+        sizer.Add(selectBtn, 0, wx.ALL | wx.CENTER, 5)
+        self.SetSizer(sizer)
+
+    def onDragSelection(self, event):
+        """
+        Получаем клетки, которые были выбраны посредством зажатия левой
+        кнопки мыши и выделения
+        """
+        if self.grid.GetSelectionBlockTopLeft():
+            top_left = self.grid.GetSelectionBlockTopLeft()[0]
+            bottom_right = self.grid.GetSelectionBlockBottomRight()[0]
+            # self.printSelectedCells(top_left, bottom_right)
+
+    def onGetSelection(self, event):
+        """
+        Получаем клетки, которые выбраны в данный момент
+        """
+        cells = self.grid.GetSelectedCells()
+        if not cells:
+            if self.grid.GetSelectionBlockTopLeft():
+                top_left = self.grid.GetSelectionBlockTopLeft()[0]
+                bottom_right = self.grid.GetSelectionBlockBottomRight()[0]
+                self.printSelectedCells(top_left, bottom_right)                      #   вывод данных по нажатию кнопки
+            else:
+                # print(self.currentlySelectedCell)
+                return self.currentlySelectedCell
         else:
-            npyscreen.notify_confirm("продолжим работу")
+            # print(cells)
+            return cells
 
-class schit_tab_Покупки(npyscreen.ActionForm, npyscreen.FormWithMenus, npyscreen.ActionFormMinimal):
-    def create(self):
-        self.menu = self.new_menu(name="новое глвное меню", shortcut='m')
-        self.menu.addItem("1 Главное окно", self.press_1, "1")
-        self.menu.addItem("2 Таблица - Филиалы", self.press_2, "2")
-        self.menu.addItem("3 Таблица - Товары", self.press_3, "3")
-        self.menu.addItem("4 Таблица - Производители товаров", self.press_4, "4")
-        self.menu.addItem("5 Таблица - Поставки", self.press_5, "5")
-        self.menu.addItem("6 Таблица - Покупки", self.press_6, "6")
-        self.menu.addItem("7 Таблица - Клиенты", self.press_7, "7")
-        self.menu.addItem("8 Таблица - Категории", self.press_8, "8")
-        self.menu.addItem("9 Таблица - Изменение цены на товары", self.press_9, "9")
-        self.menu.addItem("10 Таблица - Запись в счете", self.press_10, "10")
-        self.menu.addItem("выход из программы", self.exit_form, "^X")
-        self.tablet= self.add(npyscreen.GridColTitles,)
-        self.tablet.values=rabota_s_xls.schit_tab_Покупки()
+    def onSingleSelect(self, event):
+        """
+        Получаем выделение одной ячейки посредством клика по ней
+        или перемещения между клетками посредством клавиш-стрелок
+        """
+        # print("You selected Row %s, Col %s" % (event.GetRow(), event.GetCol()))
 
-    def press_1(self):
-        npyscreen.notify_confirm("выбрано Главное окно")
-        self.parentApp.change_form('MAIN')
-        
-    def press_2(self):
-        npyscreen.notify_confirm("выбрана Таблица - Филиалы")
-        self.parentApp.change_form('FORMA2')
-    
-    def press_3(self):
-        npyscreen.notify_confirm("выбрана Таблица - Товары")
-        self.parentApp.change_form('FORMA3')
+        self.currentlySelectedCell = (event.GetRow(),
+                                      event.GetCol())
+        event.Skip()
 
-    def press_4(self):
-        npyscreen.notify_confirm("выбрана Таблица - Производители товаров")
-        self.parentApp.change_form('FORMA4')
-    
-    def press_5(self):
-        npyscreen.notify_confirm("выбрана Таблица - Поставки")
-        self.parentApp.change_form('FORMA5')
+        # return self.currentlySelectedCell
 
-    def press_6(self):
-        npyscreen.notify_confirm("выбрана Таблица - Покупки")
-        self.parentApp.change_form('FORMA6')
+    def printSelectedCells(self, top_left, bottom_right):
+        """
+        Основано на коде из: http://ginstrom.com/scribbles/2008/09/07/getting-the-selected-cells-from-a-wxpython-grid/
+        """
+        cells = []
 
-    def press_7(self):
-        npyscreen.notify_confirm("выбрана Таблица - Клиенты")
-        self.parentApp.change_form('FORMA7')
+        rows_start = top_left[0]
+        rows_end = bottom_right[0]
 
-    def press_8(self):
-        npyscreen.notify_confirm("выбрана Таблица - Категории")
-        self.parentApp.change_form('FORMA8')
+        cols_start = top_left[1]
+        cols_end = bottom_right[1]
 
-    def press_9(self):
-        npyscreen.notify_confirm("выбрана Таблица - Изменение цены на товары")
-        self.parentApp.change_form('FORMA9')
+        rows = range(rows_start, rows_end + 1)
+        cols = range(cols_start, cols_end + 1)
 
-    def press_10(self):
-        npyscreen.notify_confirm("выбрана Таблица - Запись в счете")
-        self.parentApp.change_form('FORMA10')
+        cells.extend([(row, col)
+                      for row in rows
+                      for col in cols])
 
-    def exit_form(self):
-        self.parentApp.switchForm(None)
+        print("выделены ячейки: ", cells)
 
-    def on_ok(self):
-        npyscreen.notify_confirm("OK button")
 
-    def on_cancel(self):
-        exiting = npyscreen.notify_yes_no("выход из программы")
-        if(exiting):
-            npyscreen.notify_confirm("да, выход. НЕТ, остаться")
-            self.parentApp.setNextForm(None)
+        for cell in cells:
+            row, col = cell
+            bukva = get_column_letter(col+1)                                  #   вставиить конвертер для координат ЭКСЕЛЯ
+            print(f'значение выбраных ячеек - {self.grid.GetCellValue(row, col)} - {row+1} : {bukva}')
+            koordinat = str(bukva) + str(row + 1)
+            print(f'запись по координатам - {koordinat}', type(koordinat))
+            self.wb = openpyxl.load_workbook('magazinchik.xlsx')
+            self.sheet = self.wb['Покупки']
+            self.sheet[koordinat]=self.grid.GetCellValue(row, col)
+            self.wb.save('magazinchik.xlsx')
+                                                           #    в цикле выводится информация по координатам, надо прикрутить запись в ЭКСЕЛЬ по координатам
+
+        def createToolBar(self):                                   # (1) Создание панели инструментов
+            toolbar = self.CreateToolBar()
+            for each in self.toolbarData():
+                self.createSimpleTool(toolbar, *each)
+            toolbar.AddSeparator()
+            for each in self.toolbarColorData():
+                self.createColorTool(toolbar, each)
+            toolbar.Realize()
+
+class PanelTwo_klienti(wx.Panel):
+    def __init__(self, parent):
+        wx.Panel.__init__(self, parent=parent)
+        sizer = wx.BoxSizer(wx.VERTICAL)
+
+        self.currentlySelectedCell = (0, 0)
+
+        self.wb = openpyxl.load_workbook('magazinchik.xlsx')
+        self.sheet = self.wb['Клиенты']
+
+        rows = (self.sheet.max_row) + 1
+        cols = (self.sheet.max_column) + 1
+
+        self.grid = wx.grid.Grid(self)
+        self.grid.CreateGrid(rows, cols)
+        for row in range(1, rows):
+            for col in range(1, cols):
+                bukva = get_column_letter(col)
+                ctroka = str(self.sheet[f'{bukva}{row}'].value)
+                self.grid.SetCellValue(row - 1, col - 1, ctroka)
+
+        self.grid.Bind(gridlib.EVT_GRID_SELECT_CELL, self.onSingleSelect)
+        self.grid.Bind(gridlib.EVT_GRID_RANGE_SELECT, self.onDragSelection)
+
+        selectBtn = wx.Button(self, label="сохранить внесенные изменения")
+        selectBtn.Bind(wx.EVT_BUTTON, self.onGetSelection)
+
+        sizer.Add(self.grid, 1, wx.EXPAND)
+        sizer.Add(selectBtn, 0, wx.ALL | wx.CENTER, 5)
+        self.SetSizer(sizer)
+
+    def onDragSelection(self, event):
+        """
+        Получаем клетки, которые были выбраны посредством зажатия левой
+        кнопки мыши и выделения
+        """
+        if self.grid.GetSelectionBlockTopLeft():
+            top_left = self.grid.GetSelectionBlockTopLeft()[0]
+            bottom_right = self.grid.GetSelectionBlockBottomRight()[0]
+            # self.printSelectedCells(top_left, bottom_right)
+
+    def onGetSelection(self, event):
+        """
+        Получаем клетки, которые выбраны в данный момент
+        """
+        cells = self.grid.GetSelectedCells()
+        if not cells:
+            if self.grid.GetSelectionBlockTopLeft():
+                top_left = self.grid.GetSelectionBlockTopLeft()[0]
+                bottom_right = self.grid.GetSelectionBlockBottomRight()[0]
+                self.printSelectedCells(top_left, bottom_right)                      #   вывод данных по нажатию кнопки
+            else:
+                # print(self.currentlySelectedCell)
+                return self.currentlySelectedCell
         else:
-            npyscreen.notify_confirm("продолжим работу")
+            # print(cells)
+            return cells
 
-class schit_tab_Клиенты(npyscreen.ActionForm, npyscreen.FormWithMenus, npyscreen.ActionFormMinimal):
-    def create(self):
-        self.menu = self.new_menu(name="новое глвное меню", shortcut='m')
-        self.menu.addItem("1 Главное окно", self.press_1, "1")
-        self.menu.addItem("2 Таблица - Филиалы", self.press_2, "2")
-        self.menu.addItem("3 Таблица - Товары", self.press_3, "3")
-        self.menu.addItem("4 Таблица - Производители товаров", self.press_4, "4")
-        self.menu.addItem("5 Таблица - Поставки", self.press_5, "5")
-        self.menu.addItem("6 Таблица - Покупки", self.press_6, "6")
-        self.menu.addItem("7 Таблица - Клиенты", self.press_7, "7")
-        self.menu.addItem("8 Таблица - Категории", self.press_8, "8")
-        self.menu.addItem("9 Таблица - Изменение цены на товары", self.press_9, "9")
-        self.menu.addItem("10 Таблица - Запись в счете", self.press_10, "10")
-        self.menu.addItem("выход из программы", self.exit_form, "^X")
-        self.tablet= self.add(npyscreen.GridColTitles,)
-        self.tablet.values=rabota_s_xls.schit_tab_Клиенты()
+    def onSingleSelect(self, event):
+        """
+        Получаем выделение одной ячейки посредством клика по ней
+        или перемещения между клетками посредством клавиш-стрелок
+        """
+        # print("You selected Row %s, Col %s" % (event.GetRow(), event.GetCol()))
 
-    def press_1(self):
-        npyscreen.notify_confirm("выбрано Главное окно")
-        self.parentApp.change_form('MAIN')
-        
-    def press_2(self):
-        npyscreen.notify_confirm("выбрана Таблица - Филиалы")
-        self.parentApp.change_form('FORMA2')
-    
-    def press_3(self):
-        npyscreen.notify_confirm("выбрана Таблица - Товары")
-        self.parentApp.change_form('FORMA3')
+        self.currentlySelectedCell = (event.GetRow(),
+                                      event.GetCol())
+        event.Skip()
 
-    def press_4(self):
-        npyscreen.notify_confirm("выбрана Таблица - Производители товаров")
-        self.parentApp.change_form('FORMA4')
-    
-    def press_5(self):
-        npyscreen.notify_confirm("выбрана Таблица - Поставки")
-        self.parentApp.change_form('FORMA5')
+        # return self.currentlySelectedCell
 
-    def press_6(self):
-        npyscreen.notify_confirm("выбрана Таблица - Покупки")
-        self.parentApp.change_form('FORMA6')
+    def printSelectedCells(self, top_left, bottom_right):
+        """
+        Основано на коде из: http://ginstrom.com/scribbles/2008/09/07/getting-the-selected-cells-from-a-wxpython-grid/
+        """
+        cells = []
 
-    def press_7(self):
-        npyscreen.notify_confirm("выбрана Таблица - Клиенты")
-        self.parentApp.change_form('FORMA7')
+        rows_start = top_left[0]
+        rows_end = bottom_right[0]
 
-    def press_8(self):
-        npyscreen.notify_confirm("выбрана Таблица - Категории")
-        self.parentApp.change_form('FORMA8')
+        cols_start = top_left[1]
+        cols_end = bottom_right[1]
 
-    def press_9(self):
-        npyscreen.notify_confirm("выбрана Таблица - Изменение цены на товары")
-        self.parentApp.change_form('FORMA9')
+        rows = range(rows_start, rows_end + 1)
+        cols = range(cols_start, cols_end + 1)
 
-    def press_10(self):
-        npyscreen.notify_confirm("выбрана Таблица - Запись в счете")
-        self.parentApp.change_form('FORMA10')
+        cells.extend([(row, col)
+                      for row in rows
+                      for col in cols])
 
-    def exit_form(self):
-        self.parentApp.switchForm(None)
+        print("выделены ячейки: ", cells)
 
-    def on_ok(self):
-        npyscreen.notify_confirm("OK button")
 
-    def on_cancel(self):
-        exiting = npyscreen.notify_yes_no("выход из программы")
-        if(exiting):
-            npyscreen.notify_confirm("да, выход. НЕТ, остаться")
-            self.parentApp.setNextForm(None)
+        for cell in cells:
+            row, col = cell
+            bukva = get_column_letter(col+1)                                  #   вставиить конвертер для координат ЭКСЕЛЯ
+            print(f'значение выбраных ячеек - {self.grid.GetCellValue(row, col)} - {row+1} : {bukva}')
+            koordinat = str(bukva) + str(row + 1)
+            print(f'запись по координатам - {koordinat}', type(koordinat))
+            self.wb = openpyxl.load_workbook('magazinchik.xlsx')
+            self.sheet = self.wb['Клиенты']
+            self.sheet[koordinat]=self.grid.GetCellValue(row, col)
+            self.wb.save('magazinchik.xlsx')
+                                                           #    в цикле выводится информация по координатам, надо прикрутить запись в ЭКСЕЛЬ по координатам
+
+        def createToolBar(self):                                   # (1) Создание панели инструментов
+            toolbar = self.CreateToolBar()
+            for each in self.toolbarData():
+                self.createSimpleTool(toolbar, *each)
+            toolbar.AddSeparator()
+            for each in self.toolbarColorData():
+                self.createColorTool(toolbar, each)
+            toolbar.Realize()
+
+class PanelTwo_kategorii(wx.Panel):
+    def __init__(self, parent):
+        wx.Panel.__init__(self, parent=parent)
+        sizer = wx.BoxSizer(wx.VERTICAL)
+
+        self.currentlySelectedCell = (0, 0)
+
+        self.wb = openpyxl.load_workbook('magazinchik.xlsx')
+        self.sheet = self.wb['Категории']
+
+        rows = (self.sheet.max_row) + 1
+        cols = (self.sheet.max_column) + 1
+
+        self.grid = wx.grid.Grid(self)
+        self.grid.CreateGrid(rows, cols)
+        for row in range(1, rows):
+            for col in range(1, cols):
+                bukva = get_column_letter(col)
+                ctroka = str(self.sheet[f'{bukva}{row}'].value)
+                self.grid.SetCellValue(row - 1, col - 1, ctroka)
+
+        self.grid.Bind(gridlib.EVT_GRID_SELECT_CELL, self.onSingleSelect)
+        self.grid.Bind(gridlib.EVT_GRID_RANGE_SELECT, self.onDragSelection)
+
+        selectBtn = wx.Button(self, label="сохранить внесенные изменения")
+        selectBtn.Bind(wx.EVT_BUTTON, self.onGetSelection)
+
+        sizer.Add(self.grid, 1, wx.EXPAND)
+        sizer.Add(selectBtn, 0, wx.ALL | wx.CENTER, 5)
+        self.SetSizer(sizer)
+
+    def onDragSelection(self, event):
+        """
+        Получаем клетки, которые были выбраны посредством зажатия левой
+        кнопки мыши и выделения
+        """
+        if self.grid.GetSelectionBlockTopLeft():
+            top_left = self.grid.GetSelectionBlockTopLeft()[0]
+            bottom_right = self.grid.GetSelectionBlockBottomRight()[0]
+            # self.printSelectedCells(top_left, bottom_right)
+
+    def onGetSelection(self, event):
+        """
+        Получаем клетки, которые выбраны в данный момент
+        """
+        cells = self.grid.GetSelectedCells()
+        if not cells:
+            if self.grid.GetSelectionBlockTopLeft():
+                top_left = self.grid.GetSelectionBlockTopLeft()[0]
+                bottom_right = self.grid.GetSelectionBlockBottomRight()[0]
+                self.printSelectedCells(top_left, bottom_right)                      #   вывод данных по нажатию кнопки
+            else:
+                # print(self.currentlySelectedCell)
+                return self.currentlySelectedCell
         else:
-            npyscreen.notify_confirm("продолжим работу")
+            # print(cells)
+            return cells
 
-class schit_tab_Категории(npyscreen.ActionForm, npyscreen.FormWithMenus, npyscreen.ActionFormMinimal):
-    def create(self):
-        self.menu = self.new_menu(name="новое глвное меню", shortcut='m')
-        self.menu.addItem("1 Главное окно", self.press_1, "1")
-        self.menu.addItem("2 Таблица - Филиалы", self.press_2, "2")
-        self.menu.addItem("3 Таблица - Товары", self.press_3, "3")
-        self.menu.addItem("4 Таблица - Производители товаров", self.press_4, "4")
-        self.menu.addItem("5 Таблица - Поставки", self.press_5, "5")
-        self.menu.addItem("6 Таблица - Покупки", self.press_6, "6")
-        self.menu.addItem("7 Таблица - Клиенты", self.press_7, "7")
-        self.menu.addItem("8 Таблица - Категории", self.press_8, "8")
-        self.menu.addItem("9 Таблица - Изменение цены на товары", self.press_9, "9")
-        self.menu.addItem("10 Таблица - Запись в счете", self.press_10, "10")
-        self.menu.addItem("выход из программы", self.exit_form, "^X")
-        self.tablet= self.add(npyscreen.GridColTitles,)
-        self.tablet.values=rabota_s_xls.schit_tab_Категории()
+    def onSingleSelect(self, event):
+        """
+        Получаем выделение одной ячейки посредством клика по ней
+        или перемещения между клетками посредством клавиш-стрелок
+        """
+        # print("You selected Row %s, Col %s" % (event.GetRow(), event.GetCol()))
 
-    def press_1(self):
-        npyscreen.notify_confirm("выбрано Главное окно")
-        self.parentApp.change_form('MAIN')
-        
-    def press_2(self):
-        npyscreen.notify_confirm("выбрана Таблица - Филиалы")
-        self.parentApp.change_form('FORMA2')
-    
-    def press_3(self):
-        npyscreen.notify_confirm("выбрана Таблица - Товары")
-        self.parentApp.change_form('FORMA3')
+        self.currentlySelectedCell = (event.GetRow(),
+                                      event.GetCol())
+        event.Skip()
 
-    def press_4(self):
-        npyscreen.notify_confirm("выбрана Таблица - Производители товаров")
-        self.parentApp.change_form('FORMA4')
-    
-    def press_5(self):
-        npyscreen.notify_confirm("выбрана Таблица - Поставки")
-        self.parentApp.change_form('FORMA5')
+        # return self.currentlySelectedCell
 
-    def press_6(self):
-        npyscreen.notify_confirm("выбрана Таблица - Покупки")
-        self.parentApp.change_form('FORMA6')
+    def printSelectedCells(self, top_left, bottom_right):
+        """
+        Основано на коде из: http://ginstrom.com/scribbles/2008/09/07/getting-the-selected-cells-from-a-wxpython-grid/
+        """
+        cells = []
 
-    def press_7(self):
-        npyscreen.notify_confirm("выбрана Таблица - Клиенты")
-        self.parentApp.change_form('FORMA7')
+        rows_start = top_left[0]
+        rows_end = bottom_right[0]
 
-    def press_8(self):
-        npyscreen.notify_confirm("выбрана Таблица - Категории")
-        self.parentApp.change_form('FORMA8')
+        cols_start = top_left[1]
+        cols_end = bottom_right[1]
 
-    def press_9(self):
-        npyscreen.notify_confirm("выбрана Таблица - Изменение цены на товары")
-        self.parentApp.change_form('FORMA9')
+        rows = range(rows_start, rows_end + 1)
+        cols = range(cols_start, cols_end + 1)
 
-    def press_10(self):
-        npyscreen.notify_confirm("выбрана Таблица - Запись в счете")
-        self.parentApp.change_form('FORMA10')
+        cells.extend([(row, col)
+                      for row in rows
+                      for col in cols])
 
-    def exit_form(self):
-        self.parentApp.switchForm(None)
+        print("выделены ячейки: ", cells)
 
-    def on_ok(self):
-        npyscreen.notify_confirm("OK button")
 
-    def on_cancel(self):
-        exiting = npyscreen.notify_yes_no("выход из программы")
-        if(exiting):
-            npyscreen.notify_confirm("да, выход. НЕТ, остаться")
-            self.parentApp.setNextForm(None)
+        for cell in cells:
+            row, col = cell
+            bukva = get_column_letter(col+1)                                  #   вставиить конвертер для координат ЭКСЕЛЯ
+            print(f'значение выбраных ячеек - {self.grid.GetCellValue(row, col)} - {row+1} : {bukva}')
+            koordinat = str(bukva) + str(row + 1)
+            print(f'запись по координатам - {koordinat}', type(koordinat))
+            self.wb = openpyxl.load_workbook('magazinchik.xlsx')
+            self.sheet = self.wb['Категории']
+            self.sheet[koordinat]=self.grid.GetCellValue(row, col)
+            self.wb.save('magazinchik.xlsx')
+                                                           #    в цикле выводится информация по координатам, надо прикрутить запись в ЭКСЕЛЬ по координатам
+
+        def createToolBar(self):                                   # (1) Создание панели инструментов
+            toolbar = self.CreateToolBar()
+            for each in self.toolbarData():
+                self.createSimpleTool(toolbar, *each)
+            toolbar.AddSeparator()
+            for each in self.toolbarColorData():
+                self.createColorTool(toolbar, each)
+            toolbar.Realize()
+
+class PanelTwo_izmen(wx.Panel):
+    def __init__(self, parent):
+        wx.Panel.__init__(self, parent=parent)
+        sizer = wx.BoxSizer(wx.VERTICAL)
+
+        self.currentlySelectedCell = (0, 0)
+
+        self.wb = openpyxl.load_workbook('magazinchik.xlsx')
+        self.sheet = self.wb['Изменение цены на товары']
+
+        rows = (self.sheet.max_row) + 1
+        cols = (self.sheet.max_column) + 1
+
+        self.grid = wx.grid.Grid(self)
+        self.grid.CreateGrid(rows, cols)
+        for row in range(1, rows):
+            for col in range(1, cols):
+                bukva = get_column_letter(col)
+                ctroka = str(self.sheet[f'{bukva}{row}'].value)
+                self.grid.SetCellValue(row - 1, col - 1, ctroka)
+
+        self.grid.Bind(gridlib.EVT_GRID_SELECT_CELL, self.onSingleSelect)
+        self.grid.Bind(gridlib.EVT_GRID_RANGE_SELECT, self.onDragSelection)
+
+        selectBtn = wx.Button(self, label="сохранить внесенные изменения")
+        selectBtn.Bind(wx.EVT_BUTTON, self.onGetSelection)
+
+        sizer.Add(self.grid, 1, wx.EXPAND)
+        sizer.Add(selectBtn, 0, wx.ALL | wx.CENTER, 5)
+        self.SetSizer(sizer)
+
+    def onDragSelection(self, event):
+        """
+        Получаем клетки, которые были выбраны посредством зажатия левой
+        кнопки мыши и выделения
+        """
+        if self.grid.GetSelectionBlockTopLeft():
+            top_left = self.grid.GetSelectionBlockTopLeft()[0]
+            bottom_right = self.grid.GetSelectionBlockBottomRight()[0]
+            # self.printSelectedCells(top_left, bottom_right)
+
+    def onGetSelection(self, event):
+        """
+        Получаем клетки, которые выбраны в данный момент
+        """
+        cells = self.grid.GetSelectedCells()
+        if not cells:
+            if self.grid.GetSelectionBlockTopLeft():
+                top_left = self.grid.GetSelectionBlockTopLeft()[0]
+                bottom_right = self.grid.GetSelectionBlockBottomRight()[0]
+                self.printSelectedCells(top_left, bottom_right)                      #   вывод данных по нажатию кнопки
+            else:
+                # print(self.currentlySelectedCell)
+                return self.currentlySelectedCell
         else:
-            npyscreen.notify_confirm("продолжим работу")
+            # print(cells)
+            return cells
 
-class schit_tab_Изменение_цены_на_товары(npyscreen.ActionForm, npyscreen.FormWithMenus, npyscreen.ActionFormMinimal):
-    def create(self):
-        self.menu = self.new_menu(name="новое глвное меню", shortcut='m')
-        self.menu.addItem("1 Главное окно", self.press_1, "1")
-        self.menu.addItem("2 Таблица - Филиалы", self.press_2, "2")
-        self.menu.addItem("3 Таблица - Товары", self.press_3, "3")
-        self.menu.addItem("4 Таблица - Производители товаров", self.press_4, "4")
-        self.menu.addItem("5 Таблица - Поставки", self.press_5, "5")
-        self.menu.addItem("6 Таблица - Покупки", self.press_6, "6")
-        self.menu.addItem("7 Таблица - Клиенты", self.press_7, "7")
-        self.menu.addItem("8 Таблица - Категории", self.press_8, "8")
-        self.menu.addItem("9 Таблица - Изменение цены на товары", self.press_9, "9")
-        self.menu.addItem("10 Таблица - Запись в счете", self.press_10, "10")
-        self.menu.addItem("выход из программы", self.exit_form, "^X")
-        self.tablet= self.add(npyscreen.GridColTitles,)
-        self.tablet.values=rabota_s_xls.schit_tab_Изменение_цены_на_товары()
+    def onSingleSelect(self, event):
+        """
+        Получаем выделение одной ячейки посредством клика по ней
+        или перемещения между клетками посредством клавиш-стрелок
+        """
+        # print("You selected Row %s, Col %s" % (event.GetRow(), event.GetCol()))
 
-    def press_1(self):
-        npyscreen.notify_confirm("выбрано Главное окно")
-        self.parentApp.change_form('MAIN')
-        
-    def press_2(self):
-        npyscreen.notify_confirm("выбрана Таблица - Филиалы")
-        self.parentApp.change_form('FORMA2')
-    
-    def press_3(self):
-        npyscreen.notify_confirm("выбрана Таблица - Товары")
-        self.parentApp.change_form('FORMA3')
+        self.currentlySelectedCell = (event.GetRow(),
+                                      event.GetCol())
+        event.Skip()
 
-    def press_4(self):
-        npyscreen.notify_confirm("выбрана Таблица - Производители товаров")
-        self.parentApp.change_form('FORMA4')
-    
-    def press_5(self):
-        npyscreen.notify_confirm("выбрана Таблица - Поставки")
-        self.parentApp.change_form('FORMA5')
+        # return self.currentlySelectedCell
 
-    def press_6(self):
-        npyscreen.notify_confirm("выбрана Таблица - Покупки")
-        self.parentApp.change_form('FORMA6')
+    def printSelectedCells(self, top_left, bottom_right):
+        """
+        Основано на коде из: http://ginstrom.com/scribbles/2008/09/07/getting-the-selected-cells-from-a-wxpython-grid/
+        """
+        cells = []
 
-    def press_7(self):
-        npyscreen.notify_confirm("выбрана Таблица - Клиенты")
-        self.parentApp.change_form('FORMA7')
+        rows_start = top_left[0]
+        rows_end = bottom_right[0]
 
-    def press_8(self):
-        npyscreen.notify_confirm("выбрана Таблица - Категории")
-        self.parentApp.change_form('FORMA8')
+        cols_start = top_left[1]
+        cols_end = bottom_right[1]
 
-    def press_9(self):
-        npyscreen.notify_confirm("выбрана Таблица - Изменение цены на товары")
-        self.parentApp.change_form('FORMA9')
+        rows = range(rows_start, rows_end + 1)
+        cols = range(cols_start, cols_end + 1)
 
-    def press_10(self):
-        npyscreen.notify_confirm("выбрана Таблица - Запись в счете")
-        self.parentApp.change_form('FORMA10')
+        cells.extend([(row, col)
+                      for row in rows
+                      for col in cols])
 
-    def exit_form(self):
-        self.parentApp.switchForm(None)
+        print("выделены ячейки: ", cells)
 
-    def on_ok(self):
-        npyscreen.notify_confirm("OK button")
 
-    def on_cancel(self):
-        exiting = npyscreen.notify_yes_no("выход из программы")
-        if(exiting):
-            npyscreen.notify_confirm("да, выход. НЕТ, остаться")
-            self.parentApp.setNextForm(None)
+        for cell in cells:
+            row, col = cell
+            bukva = get_column_letter(col+1)                                  #   вставиить конвертер для координат ЭКСЕЛЯ
+            print(f'значение выбраных ячеек - {self.grid.GetCellValue(row, col)} - {row+1} : {bukva}')
+            koordinat = str(bukva) + str(row + 1)
+            print(f'запись по координатам - {koordinat}', type(koordinat))
+            self.wb = openpyxl.load_workbook('magazinchik.xlsx')
+            self.sheet = self.wb['Изменение цены на товары']
+            self.sheet[koordinat]=self.grid.GetCellValue(row, col)
+            self.wb.save('magazinchik.xlsx')
+                                                           #    в цикле выводится информация по координатам, надо прикрутить запись в ЭКСЕЛЬ по координатам
+
+        def createToolBar(self):                                   # (1) Создание панели инструментов
+            toolbar = self.CreateToolBar()
+            for each in self.toolbarData():
+                self.createSimpleTool(toolbar, *each)
+            toolbar.AddSeparator()
+            for each in self.toolbarColorData():
+                self.createColorTool(toolbar, each)
+            toolbar.Realize()
+
+class PanelTwo_zapisi(wx.Panel):
+    def __init__(self, parent):
+        wx.Panel.__init__(self, parent=parent)
+        sizer = wx.BoxSizer(wx.VERTICAL)
+
+        self.currentlySelectedCell = (0, 0)
+
+        self.wb = openpyxl.load_workbook('magazinchik.xlsx')
+        self.sheet = self.wb['Запись в счете']
+
+        rows = (self.sheet.max_row) + 1
+        cols = (self.sheet.max_column) + 1
+
+        self.grid = wx.grid.Grid(self)
+        self.grid.CreateGrid(rows, cols)
+        for row in range(1, rows):
+            for col in range(1, cols):
+                bukva = get_column_letter(col)
+                ctroka = str(self.sheet[f'{bukva}{row}'].value)
+                self.grid.SetCellValue(row - 1, col - 1, ctroka)
+
+        self.grid.Bind(gridlib.EVT_GRID_SELECT_CELL, self.onSingleSelect)
+        self.grid.Bind(gridlib.EVT_GRID_RANGE_SELECT, self.onDragSelection)
+
+        selectBtn = wx.Button(self, label="сохранить внесенные изменения")
+        selectBtn.Bind(wx.EVT_BUTTON, self.onGetSelection)
+
+        sizer.Add(self.grid, 1, wx.EXPAND)
+        sizer.Add(selectBtn, 0, wx.ALL | wx.CENTER, 5)
+        self.SetSizer(sizer)
+
+    def onDragSelection(self, event):
+        """
+        Получаем клетки, которые были выбраны посредством зажатия левой
+        кнопки мыши и выделения
+        """
+        if self.grid.GetSelectionBlockTopLeft():
+            top_left = self.grid.GetSelectionBlockTopLeft()[0]
+            bottom_right = self.grid.GetSelectionBlockBottomRight()[0]
+            # self.printSelectedCells(top_left, bottom_right)
+
+    def onGetSelection(self, event):
+        """
+        Получаем клетки, которые выбраны в данный момент
+        """
+        cells = self.grid.GetSelectedCells()
+        if not cells:
+            if self.grid.GetSelectionBlockTopLeft():
+                top_left = self.grid.GetSelectionBlockTopLeft()[0]
+                bottom_right = self.grid.GetSelectionBlockBottomRight()[0]
+                self.printSelectedCells(top_left, bottom_right)                      #   вывод данных по нажатию кнопки
+            else:
+                # print(self.currentlySelectedCell)
+                return self.currentlySelectedCell
         else:
-            npyscreen.notify_confirm("продолжим работу")
+            # print(cells)
+            return cells
 
-class schit_tab_Запись_в_счете(npyscreen.ActionForm, npyscreen.FormWithMenus, npyscreen.ActionFormMinimal):
-    def create(self):
-        self.menu = self.new_menu(name="новое глвное меню", shortcut='m')
-        self.menu.addItem("1 Главное окно", self.press_1, "1")
-        self.menu.addItem("2 Таблица - Филиалы", self.press_2, "2")
-        self.menu.addItem("3 Таблица - Товары", self.press_3, "3")
-        self.menu.addItem("4 Таблица - Производители товаров", self.press_4, "4")
-        self.menu.addItem("5 Таблица - Поставки", self.press_5, "5")
-        self.menu.addItem("6 Таблица - Покупки", self.press_6, "6")
-        self.menu.addItem("7 Таблица - Клиенты", self.press_7, "7")
-        self.menu.addItem("8 Таблица - Категории", self.press_8, "8")
-        self.menu.addItem("9 Таблица - Изменение цены на товары", self.press_9, "9")
-        self.menu.addItem("10 Таблица - Запись в счете", self.press_10, "10")
-        self.menu.addItem("выход из программы", self.exit_form, "^X")
-        self.tablet= self.add(npyscreen.GridColTitles,)
-        self.tablet.values=rabota_s_xls.schit_tab_Запись_в_счете()
+    def onSingleSelect(self, event):
+        """
+        Получаем выделение одной ячейки посредством клика по ней
+        или перемещения между клетками посредством клавиш-стрелок
+        """
+        # print("You selected Row %s, Col %s" % (event.GetRow(), event.GetCol()))
 
-    def press_1(self):
-        npyscreen.notify_confirm("выбрано Главное окно")
-        self.parentApp.change_form('MAIN')
-        
-    def press_2(self):
-        npyscreen.notify_confirm("выбрана Таблица - Филиалы")
-        self.parentApp.change_form('FORMA2')
-    
-    def press_3(self):
-        npyscreen.notify_confirm("выбрана Таблица - Товары")
-        self.parentApp.change_form('FORMA3')
+        self.currentlySelectedCell = (event.GetRow(),
+                                      event.GetCol())
+        event.Skip()
 
-    def press_4(self):
-        npyscreen.notify_confirm("выбрана Таблица - Производители товаров")
-        self.parentApp.change_form('FORMA4')
-    
-    def press_5(self):
-        npyscreen.notify_confirm("выбрана Таблица - Поставки")
-        self.parentApp.change_form('FORMA5')
+        # return self.currentlySelectedCell
 
-    def press_6(self):
-        npyscreen.notify_confirm("выбрана Таблица - Покупки")
-        self.parentApp.change_form('FORMA6')
+    def printSelectedCells(self, top_left, bottom_right):
+        """
+        Основано на коде из: http://ginstrom.com/scribbles/2008/09/07/getting-the-selected-cells-from-a-wxpython-grid/
+        """
+        cells = []
 
-    def press_7(self):
-        npyscreen.notify_confirm("выбрана Таблица - Клиенты")
-        self.parentApp.change_form('FORMA7')
+        rows_start = top_left[0]
+        rows_end = bottom_right[0]
 
-    def press_8(self):
-        npyscreen.notify_confirm("выбрана Таблица - Категории")
-        self.parentApp.change_form('FORMA8')
+        cols_start = top_left[1]
+        cols_end = bottom_right[1]
 
-    def press_9(self):
-        npyscreen.notify_confirm("выбрана Таблица - Изменение цены на товары")
-        self.parentApp.change_form('FORMA9')
+        rows = range(rows_start, rows_end + 1)
+        cols = range(cols_start, cols_end + 1)
 
-    def press_10(self):
-        npyscreen.notify_confirm("выбрана Таблица - Запись в счете")
-        self.parentApp.change_form('FORMA10')
+        cells.extend([(row, col)
+                      for row in rows
+                      for col in cols])
 
-    def exit_form(self):
-        self.parentApp.switchForm(None)
+        print("выделены ячейки: ", cells)
 
-    def on_ok(self):
-        npyscreen.notify_confirm("OK button")
 
-    def on_cancel(self):
-        exiting = npyscreen.notify_yes_no("выход из программы")
-        if(exiting):
-            npyscreen.notify_confirm("да, выход. НЕТ, остаться")
-            self.parentApp.setNextForm(None)
-        else:
-            npyscreen.notify_confirm("продолжим работу")
+        for cell in cells:
+            row, col = cell
+            bukva = get_column_letter(col+1)                                  #   вставиить конвертер для координат ЭКСЕЛЯ
+            print(f'значение выбраных ячеек - {self.grid.GetCellValue(row, col)} - {row+1} : {bukva}')
+            koordinat = str(bukva) + str(row + 1)
+            print(f'запись по координатам - {koordinat}', type(koordinat))
+            self.wb = openpyxl.load_workbook('magazinchik.xlsx')
+            self.sheet = self.wb['Запись в счете']
+            self.sheet[koordinat]=self.grid.GetCellValue(row, col)
+            self.wb.save('magazinchik.xlsx')
+                                                           #    в цикле выводится информация по координатам, надо прикрутить запись в ЭКСЕЛЬ по координатам
 
-class App(npyscreen.NPSAppManaged):                                           #   приложение для запуска нескольких форм
-    
-    # rabota_s_xls.init
-    # tast_zapisi_progi = 'f'
-    rabota_s_xls.tast_zapisi
-    rabota_s_xls.wread_file()
-    # dat_tamer = True
+        def createToolBar(self):                                   # (1) Создание панели инструментов
+            toolbar = self.CreateToolBar()
+            for each in self.toolbarData():
+                self.createSimpleTool(toolbar, *each)
+            toolbar.AddSeparator()
+            for each in self.toolbarColorData():
+                self.createColorTool(toolbar, each)
+            toolbar.Realize()
 
-    def onStart(self):
-        self.addForm('MAIN', StartovauStranica, name= "Главное окно")
-        # self.textual = StartovauStranica()
-        # self.registerForm("MAIN", self.textual)
+class MyForm(wx.Frame):
+    def __init__(self):
+        wx.Frame.__init__(self, None, wx.ID_ANY, "Моя первая программа")
 
-        # thread_time = threading.Thread(target=self.update_time,args=())
-        # if(self.dat_tamer == True):
-        #     thread_time.daemon = True
-        #     thread_time.start()
-        
+        # self.name_tab = ''
+        self.panel_glav = PanelOne(self)
+        self.panel_tab_1 = PanelTwo_filiali(self)
+        self.panel_tab_2 = PanelTwo_tovari(self)
+        self.panel_tab_3 = PanelTwo_proizvod(self)
+        self.panel_tab_4 = PanelTwo_postavki(self)
+        self.panel_tab_5 = PanelTwo_pokupki(self)
+        self.panel_tab_6 = PanelTwo_klienti(self)
+        self.panel_tab_7 = PanelTwo_kategorii(self)
+        self.panel_tab_8 = PanelTwo_izmen(self)
+        self.panel_tab_9 = PanelTwo_zapisi(self)
+        self.panel_glav.Show()
+        self.panel_tab_1.Hide()
+        self.panel_tab_2.Hide()
+        self.panel_tab_3.Hide()
+        self.panel_tab_4.Hide()
+        self.panel_tab_5.Hide()
+        self.panel_tab_6.Hide()
+        self.panel_tab_7.Hide()
+        self.panel_tab_8.Hide()
+        self.panel_tab_9.Hide()
 
-        self.addForm('FORMA2', schit_tab_Филиалы, name= "Таблица - Филиалы")
-        self.addForm('FORMA3', schit_tab_Товары, name= "Таблица - Товары")
-        self.addForm('FORMA4', schit_tab_Производители_товаров, name= "Таблица - Производители товаров")
-        self.addForm('FORMA5', schit_tab_Поставки, name= "Таблица - Поставки")
-        self.addForm('FORMA6', schit_tab_Покупки, name= "Таблица - Покупки")
-        self.addForm('FORMA7', schit_tab_Клиенты, name= "Таблица - Клиенты")
-        self.addForm('FORMA8', schit_tab_Категории, name= "Таблица - Категории")
-        self.addForm('FORMA9', schit_tab_Изменение_цены_на_товары, name= "Таблица - Изменение цены на товары")
-        self.addForm('FORMA10', schit_tab_Запись_в_счете, name= "Таблица - Запись в счете")
-    def change_form(self, name):
-        self.switchForm(name)
-        self.resetHistory()
 
-    def update_time(self):
-        while True:
-            self.textual.date.value = str(datetime.datetime.now())
-            self.textual.display()
-            sleep(1)
 
-if(__name__=="__main__"):
-    app=App().run()
+        self.sizer = wx.BoxSizer(wx.VERTICAL)
+        self.sizer.Add(self.panel_glav, 1, wx.EXPAND)
+        self.sizer.Add(self.panel_tab_1, 1, wx.EXPAND)
+        self.sizer.Add(self.panel_tab_2, 1, wx.EXPAND)
+        self.sizer.Add(self.panel_tab_3, 1, wx.EXPAND)
+        self.sizer.Add(self.panel_tab_4, 1, wx.EXPAND)
+        self.sizer.Add(self.panel_tab_5, 1, wx.EXPAND)
+        self.sizer.Add(self.panel_tab_6, 1, wx.EXPAND)
+        self.sizer.Add(self.panel_tab_7, 1, wx.EXPAND)
+        self.sizer.Add(self.panel_tab_8, 1, wx.EXPAND)
+        self.sizer.Add(self.panel_tab_9, 1, wx.EXPAND)
+        self.SetSizer(self.sizer)
 
+        # self.sizer = wx.BoxSizer()                                          #    без этих строк не появляется меню
+        # self.SetSizer(self.sizer)                                                      #    происходит создание места для создания меню
+
+        menubar = wx.MenuBar()
+        fileMenu = wx.Menu()
+
+        open_panel_g = fileMenu.Append(wx.ID_ANY, 'Главное окно')
+        self.Bind(wx.EVT_MENU, self.on_panel_g, open_panel_g)
+        open_panel_1 = fileMenu.Append(wx.ID_ANY, 'Таблица - Филиалы')
+        self.Bind(wx.EVT_MENU, self.on_panel_1, open_panel_1)
+        open_panel_2 = fileMenu.Append(wx.ID_ANY, 'Таблица - Товары')
+        self.Bind(wx.EVT_MENU, self.on_panel_2, open_panel_2)
+        open_panel_3 = fileMenu.Append(wx.ID_ANY, 'Таблица - Производители')
+        self.Bind(wx.EVT_MENU, self.on_panel_3, open_panel_3)
+        open_panel_4 = fileMenu.Append(wx.ID_ANY, 'Таблица - Поставки')
+        self.Bind(wx.EVT_MENU, self.on_panel_4, open_panel_4)
+        open_panel_5 = fileMenu.Append(wx.ID_ANY, 'Таблица - Покупки')
+        self.Bind(wx.EVT_MENU, self.on_panel_5, open_panel_5)
+        open_panel_6 = fileMenu.Append(wx.ID_ANY, 'Таблица - Клиенты')
+        self.Bind(wx.EVT_MENU, self.on_panel_6, open_panel_6)
+        open_panel_7 = fileMenu.Append(wx.ID_ANY, 'Таблица - Категории')
+        self.Bind(wx.EVT_MENU, self.on_panel_7, open_panel_7)
+        open_panel_8 = fileMenu.Append(wx.ID_ANY, 'Таблица - Изменение')
+        self.Bind(wx.EVT_MENU, self.on_panel_8, open_panel_8)
+        open_panel_9 = fileMenu.Append(wx.ID_ANY, 'Таблица - Запись')
+        self.Bind(wx.EVT_MENU, self.on_panel_9, open_panel_9)
+
+        fileMenu.AppendSeparator()                                                       # разделительная линия в нутри меню
+        item = fileMenu.Append(wx.ID_EXIT, "Выход", "Выход из приложения")               #  сокращенный вид добавления пунктов меню
+        menubar.Append(fileMenu, '&меню')
+        self.SetMenuBar(menubar)                                                      #   вызов самого меню
+
+        self.Bind(wx.EVT_MENU, self.onQuit, item)                                    # строка вызова функции для обработки нажатия кнопки
+
+    def onQuit(self, event):                                                       #   функция выхода и закрытия приложения
+        self.Close()
+
+    def on_panel_g(self, event):
+        self.panel_glav.Show()
+        self.panel_tab_1.Hide()
+        self.panel_tab_2.Hide()
+        self.panel_tab_3.Hide()
+        self.panel_tab_4.Hide()
+        self.panel_tab_5.Hide()
+        self.panel_tab_6.Hide()
+        self.panel_tab_7.Hide()
+        self.panel_tab_8.Hide()
+        self.panel_tab_9.Hide()
+
+    def on_panel_1(self, event):
+        self.panel_glav.Hide()
+        self.panel_tab_1.Show()
+        self.panel_tab_2.Hide()
+        self.panel_tab_3.Hide()
+        self.panel_tab_4.Hide()
+        self.panel_tab_5.Hide()
+        self.panel_tab_6.Hide()
+        self.panel_tab_7.Hide()
+        self.panel_tab_8.Hide()
+        self.panel_tab_9.Hide()
+
+    def on_panel_2(self, event):
+        self.panel_glav.Hide()
+        self.panel_tab_1.Hide()
+        self.panel_tab_2.Show()
+        self.panel_tab_3.Hide()
+        self.panel_tab_4.Hide()
+        self.panel_tab_5.Hide()
+        self.panel_tab_6.Hide()
+        self.panel_tab_7.Hide()
+        self.panel_tab_8.Hide()
+        self.panel_tab_9.Hide()
+
+    def on_panel_3(self, event):
+        self.panel_glav.Hide()
+        self.panel_tab_1.Hide()
+        self.panel_tab_2.Hide()
+        self.panel_tab_3.Show()
+        self.panel_tab_4.Hide()
+        self.panel_tab_5.Hide()
+        self.panel_tab_6.Hide()
+        self.panel_tab_7.Hide()
+        self.panel_tab_8.Hide()
+        self.panel_tab_9.Hide()
+
+    def on_panel_4(self, event):
+        self.panel_glav.Hide()
+        self.panel_tab_1.Hide()
+        self.panel_tab_2.Hide()
+        self.panel_tab_3.Hide()
+        self.panel_tab_4.Show()
+        self.panel_tab_5.Hide()
+        self.panel_tab_6.Hide()
+        self.panel_tab_7.Hide()
+        self.panel_tab_8.Hide()
+        self.panel_tab_9.Hide()
+
+    def on_panel_5(self, event):
+        self.panel_glav.Hide()
+        self.panel_tab_1.Hide()
+        self.panel_tab_2.Hide()
+        self.panel_tab_3.Hide()
+        self.panel_tab_4.Hide()
+        self.panel_tab_5.Show()
+        self.panel_tab_6.Hide()
+        self.panel_tab_7.Hide()
+        self.panel_tab_8.Hide()
+        self.panel_tab_9.Hide()
+
+    def on_panel_6(self, event):
+        self.panel_glav.Hide()
+        self.panel_tab_1.Hide()
+        self.panel_tab_2.Hide()
+        self.panel_tab_3.Hide()
+        self.panel_tab_4.Hide()
+        self.panel_tab_5.Hide()
+        self.panel_tab_6.Show()
+        self.panel_tab_7.Hide()
+        self.panel_tab_8.Hide()
+        self.panel_tab_9.Hide()
+
+    def on_panel_7(self, event):
+        self.panel_glav.Hide()
+        self.panel_tab_1.Hide()
+        self.panel_tab_2.Hide()
+        self.panel_tab_3.Hide()
+        self.panel_tab_4.Hide()
+        self.panel_tab_5.Hide()
+        self.panel_tab_6.Hide()
+        self.panel_tab_7.Show()
+        self.panel_tab_8.Hide()
+        self.panel_tab_9.Hide()
+
+    def on_panel_8(self, event):
+        self.panel_glav.Hide()
+        self.panel_tab_1.Hide()
+        self.panel_tab_2.Hide()
+        self.panel_tab_3.Hide()
+        self.panel_tab_4.Hide()
+        self.panel_tab_5.Hide()
+        self.panel_tab_6.Hide()
+        self.panel_tab_7.Hide()
+        self.panel_tab_8.Show()
+        self.panel_tab_9.Hide()
+
+    def on_panel_9(self, event):
+        self.panel_glav.Hide()
+        self.panel_tab_1.Hide()
+        self.panel_tab_2.Hide()
+        self.panel_tab_3.Hide()
+        self.panel_tab_4.Hide()
+        self.panel_tab_5.Hide()
+        self.panel_tab_6.Hide()
+        self.panel_tab_7.Hide()
+        self.panel_tab_8.Hide()
+        self.panel_tab_9.Show()
+
+
+app = wx.App()
+frame = MyForm()
+frame.Show()
+app.MainLoop()
 
 

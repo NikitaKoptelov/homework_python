@@ -196,5 +196,5 @@ def schit_tab_Запись_в_счете():
 
 def wread_file():
     with open("D:/lesson_Python/homework_python/homework_008/text.txt", "a") as write_file:
-        write_file.write(tast_zapisi)
+        write_file.write(tast_zapisi+'\n')
 
